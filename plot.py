@@ -80,232 +80,8 @@ def animation():
     # 3. Finalize and write the MP4 file
     plotter.close()
 
-def plot_errors():
-    # 1. Load the data from the file
-    errors_path = os.path.join("outputs", "errors.txt")
 
-    with open(errors_path, "r") as f:
-        # Read each line, strip whitespace, and convert to a float
-        errors = [float(line.strip()) for line in f]
-
-    # 2. Create the plot
-    plt.figure(figsize=(8, 5))
-    plt.plot(errors, marker='o', color='crimson', linestyle='-', linewidth=1.5, label='Error')
-
-    # 3. Apply the logarithmic scale to the y-axis
-    plt.yscale('log')
-
-    # 4. Add labels, grid, and title
-    plt.xlabel('Iteration / Step')
-    plt.ylabel('Error Value (Log Scale)')
-    plt.title('Error Convergence over Time')
-
-    # "which='both'" ensures gridlines show for both major and minor log intervals
-    plt.grid(True, which="both", linestyle="--", alpha=0.5)
-    plt.legend()
-
-    # 5. Save or show the plot
-    plt.tight_layout()
-    plt.savefig(os.path.join("outputs", "error_plot.png"), dpi=300)
-    plt.show()
-
-def plot_energies():
-    energies_path = os.path.join("outputs", "energies.txt")
-
-    with open(energies_path, "r") as f:
-        # Read each line, strip whitespace, and convert to a float
-        energies = [float(line.strip()) for line in f]
-
-    # 2. Create the plot
-    plt.figure(figsize=(8, 5))
-    plt.plot(energies, marker='o', color='teal', linestyle='-', linewidth=1.5, label='Energy')
-
-    # 3. Add labels, grid, and title (defaults to linear scale)
-    plt.xlabel('Iteration / Step')
-    plt.ylabel('Energy Value')
-    plt.title('Energy over Time')
-
-    # Simple grid is perfect for linear scales
-    plt.grid(True, linestyle="--", alpha=0.5)
-    plt.legend()
-
-    # 4. Save or show the plot
-    plt.tight_layout()
-    plt.savefig(os.path.join("outputs", "energy_plot.png"), dpi=300)
-    plt.show()
-
-
-def plot_errors2(num_timesteps_to_plot=5):
-    """
-    Plots the error convergence for a specified number of timesteps.
-    
-    Parameters:
-    -----------
-    num_timesteps_to_plot : int
-        The number of timesteps you want to plot (e.g., plot the first 5 timesteps).
-    """
-    # 1. Load the errors and the iterations per timestep
-    errors_path = os.path.join("outputs", "errors.txt")
-    iterations_path = os.path.join("outputs", "iterations.txt")
-
-    # Read errors
-    with open(errors_path, "r") as f:
-        errors = [float(line.strip()) for line in f]
-
-    # Read iterations per timestep (assumed to be one integer per line)
-    with open(iterations_path, "r") as f:
-        iterations_per_timestep = [int(line.strip()) for line in f]
-
-    # 2. Slice errors into their respective timesteps
-    timesteps_errors = []
-    current_index = 0
-    
-    for num_iters in iterations_per_timestep:
-        # Extract the errors belonging to this specific timestep
-        timestep_slice = errors[current_index : current_index + num_iters]
-        timesteps_errors.append(timestep_slice)
-        current_index += num_iters
-
-    # 3. Setup the plot
-    plt.figure(figsize=(9, 6))
-
-    # Determine how many timesteps we can actually plot
-    limit = min(num_timesteps_to_plot, len(timesteps_errors))
-
-    # 4. Plot each timestep's error trajectory
-    for t in range(limit):
-        # x-axis is local to each timestep (1 to N iterations)
-        x_vals = list(range(1, len(timesteps_errors[t]) + 1))
-        plt.plot(
-            x_vals, 
-            timesteps_errors[t], 
-            marker='o', 
-            linestyle='-', 
-            linewidth=1.5, 
-            label=f'Timestep {t+1}'
-        )
-
-    # 5. Apply the logarithmic scale and labels
-    plt.yscale('log')
-    plt.xlabel('Iteration within Timestep')
-    plt.ylabel('Error Value (Log Scale)')
-    plt.title(f'Error Convergence for First {limit} Timestep(s)')
-
-    plt.grid(True, which="both", linestyle="--", alpha=0.5)
-    plt.legend()
-
-    # 6. Save and show the plot
-    plt.tight_layout()
-    plt.savefig(os.path.join("outputs", "error_plot_per_timestep.png"), dpi=300)
-    plt.show()
-
-
-def plot_energies2(num_timesteps_to_plot=5):
-    """
-    Plots the error convergence for a specified number of timesteps.
-    
-    Parameters:
-    -----------
-    num_timesteps_to_plot : int
-        The number of timesteps you want to plot (e.g., plot the first 5 timesteps).
-    """
-    # 1. Load the errors and the iterations per timestep
-    errors_path = os.path.join("outputs", "energies.txt")
-    iterations_path = os.path.join("outputs", "iterations.txt")
-
-    # Read errors
-    with open(errors_path, "r") as f:
-        errors = [float(line.strip()) for line in f]
-
-    # Read iterations per timestep (assumed to be one integer per line)
-    with open(iterations_path, "r") as f:
-        iterations_per_timestep = [int(line.strip()) for line in f]
-
-    # 2. Slice errors into their respective timesteps
-    timesteps_energies = []
-    current_index = 0
-    
-    for num_iters in iterations_per_timestep:
-        # Extract the errors belonging to this specific timestep
-        timestep_slice = errors[current_index : current_index + num_iters]
-        timesteps_energies.append(timestep_slice)
-        current_index += num_iters
-
-    # 3. Setup the plot
-    plt.figure(figsize=(9, 6))
-
-    # Determine how many timesteps we can actually plot
-    limit = min(num_timesteps_to_plot, len(timesteps_energies))
-
-    # 4. Plot each timestep's error trajectory
-    for t in range(limit):
-        # x-axis is local to each timestep (1 to N iterations)
-        x_vals = list(range(1, len(timesteps_energies[t]) + 1))
-        plt.plot(
-            x_vals, 
-            timesteps_energies[t], 
-            marker='o', 
-            linestyle='-', 
-            linewidth=1.5, 
-            label=f'Timestep {t+1}'
-        )
-
-    # 5. Apply the logarithmic scale and labels
-    plt.xlabel('Iteration within Timestep')
-    plt.ylabel('Error Value (Log Scale)')
-    plt.title(f'Error Convergence for First {limit} Timestep(s)')
-
-    plt.grid(True, which="both", linestyle="--", alpha=0.5)
-    plt.legend()
-
-    # 6. Save and show the plot
-    plt.tight_layout()
-    plt.savefig(os.path.join("outputs", "energy_plot_per_timestep.png"), dpi=300)
-    plt.show()
-
-def plot_errors3(num_timesteps_to_plot=5):
-    # 1. Load the data from the files
-    errors_path = os.path.join("outputs", "errors.txt")
-    iterations_path = os.path.join("outputs", "iterations.txt")
-
-    with open(errors_path, "r") as f:
-        errors = [float(line.strip()) for line in f]
-        
-    with open(iterations_path, "r") as f:
-        iterations_per_timestep = [int(line.strip()) for line in f]
-
-    # 2. Determine where to stop the list
-    # Make sure we don't try to read more timesteps than we actually have
-    limit = min(num_timesteps_to_plot, len(iterations_per_timestep))
-    
-    # Add up all the iterations for those specific timesteps to find the cutoff index
-    total_iterations = sum(iterations_per_timestep[:limit])
-
-    # Slice the errors list so it simply stops after the requested timesteps
-    errors_to_plot = errors[:total_iterations]
-
-    # 3. Create the plot
-    plt.figure(figsize=(8, 5))
-    plt.plot(errors_to_plot, marker='o', color='crimson', linestyle='-', linewidth=1.5, label='Error')
-
-    # 4. Apply the logarithmic scale to the y-axis
-    plt.yscale('log')
-
-    # 5. Add labels, grid, and title
-    plt.xlabel('Total Iterations')
-    plt.ylabel('Error Value (Log Scale)')
-    plt.title(f'Error Convergence (First {limit} Timesteps)')
-
-    # "which='both'" ensures gridlines show for both major and minor log intervals
-    plt.grid(True, which="both", linestyle="--", alpha=0.5)
-    plt.legend()
-
-    # 6. Save or show the plot
-    plt.tight_layout()
-    plt.savefig(os.path.join("outputs", "error_plot_truncated.png"), dpi=300)
-    plt.show()
-
-def plot_errors4(timesteps=-1):
+def plot_errors(iterations_per_timestep, errors, timesteps=-1):
     """
     Plots error convergence as a single, continuous line for specified timesteps.
     
@@ -316,15 +92,17 @@ def plot_errors4(timesteps=-1):
         - If list (e.g. [1, 2, 5]): Chains timesteps 1, 2, and 5 together into one continuous line.
         - If -1: Plots only the very last timestep.
     """
-    # 1. Load the data
-    errors_path = os.path.join("outputs", "errors.txt")
-    iterations_path = os.path.join("outputs", "iterations.txt")
 
-    with open(errors_path, "r") as f:
-        errors = [float(line.strip()) for line in f]
-        
-    with open(iterations_path, "r") as f:
-        iterations_per_timestep = [int(line.strip()) for line in f]
+    if iterations_per_timestep == False or errors == False:
+        # 1. Load the data
+        errors_path = os.path.join("outputs", "errors.txt")
+        iterations_path = os.path.join("outputs", "iterations.txt")
+
+        with open(errors_path, "r") as f:
+            errors = [float(line.strip()) for line in f]
+            
+        with open(iterations_path, "r") as f:
+            iterations_per_timestep = [int(line.strip()) for line in f]
 
     total_timesteps = len(iterations_per_timestep)
 
@@ -392,7 +170,7 @@ def plot_errors4(timesteps=-1):
     plt.savefig(os.path.join("outputs", "error_plot_single_line.png"), dpi=300)
     plt.show()
 
-def plot_energies4(timesteps=-1):
+def plot_energies(iterations_per_timestep, energies, timesteps=-1):
     """
     Plots energy values as a single, continuous line for specified timesteps.
     
@@ -403,15 +181,16 @@ def plot_energies4(timesteps=-1):
         - If list (e.g. [1, 2, 5]): Chains timesteps 1, 2, and 5 together into one continuous line.
         - If -1: Plots only the very last timestep.
     """
-    # 1. Load the data
-    energies_path = os.path.join("outputs", "energies.txt")
-    iterations_path = os.path.join("outputs", "iterations.txt")
+    if iterations_per_timestep == False or energies == False:
+        # 1. Load the data
+        energies_path = os.path.join("outputs", "energies.txt")
+        iterations_path = os.path.join("outputs", "iterations.txt")
 
-    with open(energies_path, "r") as f:
-        energies = [float(line.strip()) for line in f]
-        
-    with open(iterations_path, "r") as f:
-        iterations_per_timestep = [int(line.strip()) for line in f]
+        with open(energies_path, "r") as f:
+            energies = [float(line.strip()) for line in f]
+            
+        with open(iterations_path, "r") as f:
+            iterations_per_timestep = [int(line.strip()) for line in f]
 
     total_timesteps = len(iterations_per_timestep)
 
@@ -460,7 +239,7 @@ def plot_energies4(timesteps=-1):
 
     # 6. Apply formatting (linear y-axis)
     plt.xlabel('Combined Iterations')
-    plt.ylabel('Energy Value')
+    plt.ylabel('Energy')
     
     # Customize title based on selection
     if timesteps == -1:

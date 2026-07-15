@@ -44,20 +44,20 @@ import pyvistaqt as pvqt
 import shutil
    
 
-def cahn_hilliard():
+def cahn_hilliard(
+    type_of_linearisation = "newton", 
+    nb_of_spatial_steps =50, 
+    nb_of_time_steps = 100, 
+    final_time = 1, 
+    eps = 10**(-4)):
     """
     =============================================================
     1. PARAMETER DEFINITIONS
     =============================================================
     """
-
-    type_of_linearisation = "L"                            #Scheme: "newton" (quadratic convergence), "L" (simple linear), or "M" (modified stabilized)
-    nb_of_spatial_steps = 50                                    #Mesh resolution (number of segments per boundary edge)
-    nb_of_time_steps=20                                        #Total number of time steps (N_T)
-    T = 1                                                       #Total simulation time (T)
-    dt = T/nb_of_time_steps                                     #Time step size (dt)
-    eps = 10**(-4)                                              #Interfacial width parameter (epsilon^2)
-    M = 0.1                                                     #Stabilization constant used only in the "M" scheme                                
+    T = final_time                                                      #Total simulation time (T)
+    dt = T/nb_of_time_steps                                    
+    M = 0.1                                                                                
     t = 0.0 
 
 
@@ -87,7 +87,8 @@ def cahn_hilliard():
     initial = Function(ME)  # solution from previous converged step
 
     rng = np.random.default_rng(42)
-    initial.sub(0).interpolate(lambda x: 0.02 * (0.5 - rng.random(x.shape[1])))
+    #initial.sub(0).interpolate(lambda x: 0.02 * (0.5 - rng.random(x.shape[1])))
+    initial.sub(0).interpolate(lambda x: 0.02 * ( rng.random(x.shape[1])))
     initial.x.scatter_forward()
 
 
@@ -211,7 +212,7 @@ def cahn_hilliard():
 
     solution_previous_time.x.array[:] = initial.x.array[:]
     solution_previous_iteration.x.array[:] = initial.x.array[:]
-    step = 1
+    step = 0
     error = 1
     nb_of_iterations = 0
     while t < T:
@@ -267,7 +268,7 @@ def cahn_hilliard():
             f.write(f"{iteration}\n")
 
     vtk_file.close()
-    return errors, energies
+    return iterations, errors, energies
 
 
 

@@ -44,7 +44,12 @@ import pyvistaqt as pvqt
 import shutil
    
 
-def allen_cahn(type_of_linearisation = "newton", nb_of_spatial_steps =50, nb_of_time_steps = 100, final_time = 1, eps = 10**(-4)):
+def allen_cahn(
+    type_of_linearisation = "newton", 
+    nb_of_spatial_steps =50, 
+    nb_of_time_steps = 100, 
+    final_time = 1, 
+    eps = 10**(-4)):
     """
     =============================================================
     1. PARAMETER DEFINITIONS
@@ -54,7 +59,7 @@ def allen_cahn(type_of_linearisation = "newton", nb_of_spatial_steps =50, nb_of_
     #type_of_linearisation = type_of_linearisation               #Scheme: "newton" (quadratic convergence), "L" (simple linear), or "M" (modified stabilized)
     #nb_of_spatial_steps = 50                                    #Mesh resolution (number of segments per boundary edge)
     #nb_of_time_steps=100                                        #Total number of time steps (N_T)
-    T = 1                                                       #Total simulation time (T)
+    T = final_time                                                      #Total simulation time (T)
     dt = T/nb_of_time_steps                                     #Time step size (dt)
     #eps = 10**(-4)                                              #Interfacial width parameter (epsilon^2)
     M = 0.1                                                     #Stabilization constant used only in the "M" scheme                                
@@ -244,7 +249,7 @@ def allen_cahn(type_of_linearisation = "newton", nb_of_spatial_steps =50, nb_of_
 
 
 
-    return errors, energies
+    return iterations, errors, energies
 
 
 
