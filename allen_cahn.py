@@ -90,9 +90,24 @@ def allen_cahn(
     solution_previous_time = Function(V)                    #Solution from time t_n (u^n)
     solution_previous_iteration = Function(V)
 
+
+    def initial_circle(x):
+        center_x, center_y = 0.5, 0.5
+        r = np.sqrt((x[0] - center_x)**2 + (x[1] - center_y)**2)
+        dist = r - 0.35
+        return -np.tanh(dist / (np.sqrt(2) * eps))
+
+    u0.interpolate(initial_circle)
+    u0.x.scatter_forward()
+
+    u0.x.array[:] = np.random.uniform(-0.2, 0.2, len(u0.x.array))
+
+    """
+    
     rng = np.random.default_rng(42)
     u0.interpolate(lambda x: 0.02 * (0.5 - rng.random(x.shape[1])))
     u0.x.scatter_forward()   #this is needed for parallelcomputing
+    """
 
 
 
@@ -148,7 +163,7 @@ def allen_cahn(
 
     """
     =================================================================
-    5. Output preperation
+    5. Output preparation
     =================================================================
     """
 

@@ -56,7 +56,8 @@ def cahn_hilliard(
     =============================================================
     """
     T = final_time                                                      #Total simulation time (T)
-    dt = T/nb_of_time_steps                                    
+    dt = T/nb_of_time_steps
+    eps = eps**2                                   
     M = 0.1                                                                                
     t = 0.0 
 
@@ -86,11 +87,77 @@ def cahn_hilliard(
     solution_previous_iteration = Function(ME)
     initial = Function(ME)  # solution from previous converged step
 
+    """
     rng = np.random.default_rng(42)
     #initial.sub(0).interpolate(lambda x: 0.02 * (0.5 - rng.random(x.shape[1])))
     initial.sub(0).interpolate(lambda x: 0.02 * ( rng.random(x.shape[1])))
     initial.x.scatter_forward()
+    """
 
+    
+    rng = np.random.default_rng(42)
+
+    def random_noise(x):
+    # Generereer ruis tussen -0.05 en +0.05 voor elk punt x
+        return rng.uniform(-0.1, 0.1, x.shape[1])
+
+    initial.sub(0).interpolate(random_noise)
+    initial.x.scatter_forward()
+    
+    
+
+    """
+    x_min, x_max = 0.35, 0.65
+    y_min, y_max = 0.35, 0.65
+
+
+    def initial_square(x):
+        # Bepaal afstand tot de randen van het vierkant
+        dx = np.maximum(x_min - x[0], x[0] - x_max)
+        dy = np.maximum(y_min - x[1], x[1] - y_max)
+        
+        # Signed distance veld voor een rechthoek
+        d_square = np.maximum(dx, dy)
+        
+        return -np.tanh(d_square / (np.sqrt(2) * eps))
+
+
+    initial.sub(0).interpolate(initial_square)
+    initial.x.scatter_forward()
+    """
+
+
+
+    """
+    r_1 = 0.10  # Maak de druppels iets groter (bijv. 0.18 ipv 0.15) voor meer massa!
+    r_2 = 0.10  
+
+    # Centra van de twee druppels
+    center1 = np.array([0.30, 0.5])
+    center2 = np.array([0.70, 0.5])
+
+    def initial_two_droplets(x):
+        # 1. Bepaal de afstand van elk punt x tot beide centra
+        d1 = np.sqrt((x[0] - center1[0])**2 + (x[1] - center1[1])**2)
+        d2 = np.sqrt((x[0] - center2[0])**2 + (x[1] - center2[1])**2)
+        
+        # 2. Bepaal voor elk punt de AFSTAND TOT DE DICHTSTBIJZIJNDE DRUPPEL
+        # We berekenen de "effectieve straal min afstand"
+        val1 = r_1 - d1
+        val2 = r_2 - d2
+        effective_dist = np.maximum(val1, val2)
+    
+    # 3. Bereken één enkele, hele strakke tanh overgang
+        return np.tanh(effective_dist / (np.sqrt(2) * 0.001))
+
+    initial.sub(0).interpolate(initial_two_droplets)
+    initial.x.scatter_forward()
+    """
+
+
+    compiled_energy = form((0.5*ufl.inner(ufl.grad(initial), ufl.grad(initial))+(0.25/eps)*(1-initial**2)**2)*ufl.dx)
+    energy = assemble_scalar(compiled_energy)
+    print("Initial energy =" + str(energy))
 
     """
     =================================================================
@@ -220,6 +287,10 @@ def cahn_hilliard(
         while error > 10**(-8):
             _ = problem.solve()
             print(solution.x.array[:])
+
+            compiled_mass = form(u*ufl.dx)
+            mass = assemble_scalar(compiled_mass)
+            print(mass)
 
             compiled_error = form(ufl.inner(u - u_previous_iteration, u - u_previous_iteration) * ufl.dx)
             error = np.sqrt(assemble_scalar(compiled_error))
