@@ -1,0 +1,383 @@
+"""
+=================================================================
+FINITE ELEMENT METHOD (FEM) SOLVER FOR ALLEN-CAHN EQUATION (2D)
+=================================================================
+This script simulates the motion of phase boundaries (interfaces)
+using the Cahn-Hilliard equation on a unit square domain.
+
+PDE:
+1: Cahn-Hilliard equation in mixed formulation form
+2: Boundary Conditions: homogeneous Neumann
+3: Initial condition: ...   
+
+Numerical Method:
+1. Convex-Concave split of the potential term
+2. Time Discretization: First order IMEX Euler scheme.
+3. Tackling nonlinearity with an iterative linearization: Newton or L-scheme
+4. Spatial Discretization: FEM with P1 Finite Elements (CG)
+=================================================================
+"""
+
+
+"""
+=============================================================
+0. Importing modules & packages
+=============================================================
+"""
+
+import os
+from pathlib import Path
+import numpy as np
+import ufl
+from basix.ufl import element, mixed_element
+from dolfinx import default_real_type, log, plot
+from dolfinx.fem import Function, functionspace, form, assemble_scalar
+from dolfinx.fem.petsc import NonlinearProblem
+from dolfinx.fem.petsc import LinearProblem
+from dolfinx.io import XDMFFile
+from dolfinx.mesh import CellType, create_unit_square
+from mpi4py import MPI
+from petsc4py import PETSc
+import dolfinx.io
+import pyvista as pv
+import pyvistaqt as pvqt
+import shutil
+   
+
+def cahn_hilliard_test(
+    type_of_linearisation = "newton", 
+    nb_of_spatial_steps =50, 
+    nb_of_time_steps = 100, 
+    final_time = 1, 
+    eps = 10**(-4)):
+    """
+    =============================================================
+    1. PARAMETER DEFINITIONS
+    =============================================================
+    """
+    T = final_time                                                      #Total simulation time (T)
+    dt = T/nb_of_time_steps
+    eps = eps**2                                   
+    M = 1.0                                                                              
+    t = 0.0 
+
+
+    """
+    =============================================================
+    2. DOMAIN, MESH GENERATION AND FINITE ELEMENT SPACE
+    =============================================================
+    """
+
+    msh = create_unit_square(MPI.COMM_WORLD, nb_of_spatial_steps, nb_of_spatial_steps, CellType.triangle)
+    P1 = element("Lagrange", msh.basix_cell(), 1, dtype=default_real_type)
+    #V = functionspace(msh, P1)
+    ME = functionspace(msh, mixed_element([P1, P1]))
+
+
+
+    """
+    =================================================================
+    3. INITIAL CONDITIONS
+    =================================================================
+    """
+
+
+    solution = Function(ME)  # current solution
+    solution_previous_time = Function(ME)
+    solution_previous_iteration = Function(ME)
+    initial = Function(ME)  # solution from previous converged step
+
+ 
+    
+    initial.sub(0).interpolate(lambda x: np.cos(2 * np.pi * x[0]))
+
+# mu_0 = -eps_sq * Lapl(u_0) + u_0^3 - u_0
+# Lapl(cos(2*pi*x)) = -(2*pi)^2 * cos(2*pi*x) ==> -eps_sq * Lapl = + eps_sq * (2*pi)^2 * cos
+    initial.sub(1).interpolate(
+        lambda x: (eps**2) * (2 * np.pi)**2 * np.cos(2 * np.pi * x[0]) 
+        + np.cos(2 * np.pi * x[0])**3 
+        - np.cos(2 * np.pi * x[0])
+    )
+    initial.x.scatter_forward()       
+
+    """
+    rng = np.random.default_rng(42)
+    #initial.sub(0).interpolate(lambda x: 0.02 * (0.5 - rng.random(x.shape[1])))
+    initial.sub(0).interpolate(lambda x: 0.02 * ( rng.random(x.shape[1])))
+    initial.x.scatter_forward()
+    """
+
+    """
+    rng = np.random.default_rng(42)
+
+    def random_noise(x):
+    # Generereer ruis tussen -0.05 en +0.05 voor elk punt x
+        return rng.uniform(-0.1, 0.1, x.shape[1])
+
+    initial.sub(0).interpolate(random_noise)
+    initial.x.scatter_forward()
+    """
+    
+
+    """
+    x_min, x_max = 0.35, 0.65
+    y_min, y_max = 0.35, 0.65
+
+
+    def initial_square(x):
+        # Bepaal afstand tot de randen van het vierkant
+        dx = np.maximum(x_min - x[0], x[0] - x_max)
+        dy = np.maximum(y_min - x[1], x[1] - y_max)
+        
+        # Signed distance veld voor een rechthoek
+        d_square = np.maximum(dx, dy)
+        
+        return -np.tanh(d_square / (np.sqrt(2) * eps))
+
+
+    initial.sub(0).interpolate(initial_square)
+    initial.x.scatter_forward()
+    """
+
+
+
+    """
+    r_1 = 0.10  # Maak de druppels iets groter (bijv. 0.18 ipv 0.15) voor meer massa!
+    r_2 = 0.10  
+
+    # Centra van de twee druppels
+    center1 = np.array([0.30, 0.5])
+    center2 = np.array([0.70, 0.5])
+
+    def initial_two_droplets(x):
+        # 1. Bepaal de afstand van elk punt x tot beide centra
+        d1 = np.sqrt((x[0] - center1[0])**2 + (x[1] - center1[1])**2)
+        d2 = np.sqrt((x[0] - center2[0])**2 + (x[1] - center2[1])**2)
+        
+        # 2. Bepaal voor elk punt de AFSTAND TOT DE DICHTSTBIJZIJNDE DRUPPEL
+        # We berekenen de "effectieve straal min afstand"
+        val1 = r_1 - d1
+        val2 = r_2 - d2
+        effective_dist = np.maximum(val1, val2)
+    
+    # 3. Bereken één enkele, hele strakke tanh overgang
+        return np.tanh(effective_dist / (np.sqrt(2) * 0.001))
+
+    initial.sub(0).interpolate(initial_two_droplets)
+    initial.x.scatter_forward()
+    """
+
+
+    compiled_energy = form((0.5*ufl.inner(ufl.grad(initial), ufl.grad(initial))+(0.25/eps)*(1-initial**2)**2)*ufl.dx)
+    energy = assemble_scalar(compiled_energy)
+    print("Initial energy =" + str(energy))
+
+    """
+    =================================================================
+    4. Weak formulation of each linear elliptic problem 
+    =================================================================
+    """
+    # Split mixed functions
+
+
+    u, mu = ufl.split(solution)
+    u_previous_time, mu_previous_time = ufl.split(solution_previous_time)
+    u_previous_iteration, mu_previous_iteration = ufl.split(solution_previous_iteration)
+    u0, mu0 = ufl.split(initial)
+
+    u_trial, mu_trial = ufl.TrialFunctions(ME)
+    phi, v = ufl.TestFunctions(ME)
+
+    # 1. Coordinate spatial symbols for Manufactured Solution
+    x = ufl.SpatialCoordinate(msh)
+
+    # Manufactured Solution: u_exact = sin(2*pi*x)
+    u_exact = ufl.cos(2 * ufl.pi * x[0])
+    mu_exact = eps * (2 * ufl.pi)**2 * u_exact + u_exact**3 - u_exact
+
+    # Manufactured Source Term: f_u = -M * laplacian(mu_exact)
+    # Weak form contribution: + M * inner(grad(mu_exact), grad(phi)) * dx
+    f_u_weak = M * ufl.inner(ufl.grad(mu_exact), ufl.grad(phi)) * ufl.dx
+
+
+    # 2. Set up your linearization constant (L)
+    if type_of_linearisation == "newton":
+        L = 3 * u_previous_iteration**2
+    elif type_of_linearisation == "L":
+        L = dolfinx.fem.Constant(msh, dolfinx.default_scalar_type(3.0))
+
+
+    # 3. Define the equations using the TrialFunctions
+    F1 = (
+        ufl.inner(u_trial, phi)*ufl.dx 
+        + dt * ufl.inner(ufl.grad(mu_trial), ufl.grad(phi))*ufl.dx 
+        - ufl.inner(u_previous_time, phi)*ufl.dx
+        - dt* ufl.inner(ufl.grad(mu_exact), ufl.grad(phi)) * ufl.dx
+    )
+
+    F2 = (
+        -eps * ufl.inner(ufl.grad(u_trial), ufl.grad(v))*ufl.dx 
+        + ufl.inner(mu_trial, v)*ufl.dx
+        - L * ufl.inner(u_trial, v)*ufl.dx 
+        - ufl.inner(u_previous_iteration**3, v)*ufl.dx 
+        + L * ufl.inner(u_previous_iteration, v)*ufl.dx 
+        + ufl.inner(u_previous_time, v)*ufl.dx
+    )
+
+    F = F1+F2
+
+    a = ufl.lhs(F)
+    f_linear = ufl.rhs(F)
+# Pre-compileer UFL forms voor PETSc assemblage
+    a_compiled = dolfinx.fem.form(a)
+    f_compiled = dolfinx.fem.form(f_linear)
+
+    # Maak Herbruikbare PETSc Structuren aan
+    A = dolfinx.fem.petsc.create_matrix(a_compiled)
+    b = A.createVecRight()  # <-- Gebruikt de juiste parallelle layout van A
+
+    solver = PETSc.KSP().create(msh.comm)
+    solver.setType("preonly")
+    solver.getPC().setType("lu")
+    solver.getPC().setFactorSolverType("petsc")
+
+    """
+    =================================================================
+    5. Output preperation
+    =================================================================
+    """
+
+
+    # --- 1. Clean and Prepare the Output Directory ---
+
+
+    if msh.comm.rank == 0:
+        # If the folder already exists, delete it and all its contents
+        if os.path.exists("graphs"):
+            shutil.rmtree("graphs")
+        if os.path.exists("outputs"):
+            shutil.rmtree("outputs")
+        # Create a fresh, empty directory
+        os.makedirs("graphs", exist_ok=True)
+        os.makedirs("outputs", exist_ok=True)
+
+    # MPI Barrier: Forces all processor ranks to wait until rank 0 
+    # is done deleting and recreating the directory.
+    msh.comm.Barrier()
+
+    V0, _ = ME.sub(0).collapse()
+    topology, cell_types, x = plot.vtk_mesh(V0)
+    grid = pv.UnstructuredGrid(topology, cell_types, x)
+
+    c_visual = Function(V0)
+    c_visual.x.array[:] = solution.sub(0).collapse().x.array
+
+    
+    grid.point_data["c"] = c_visual.x.array.real
+    grid.set_active_scalars("c")  # Aangepast naar string "c" ipv UFL object c
+
+  
+    # --- 3. Initialize the VTK Writer ---
+    solution.name = "c"
+    vtk_filepath = os.path.join("graphs", "output_solution.pvd")
+    vtk_file = dolfinx.io.VTKFile(msh.comm, vtk_filepath, "w")
+    c_output = dolfinx.fem.Function(V0, name="c")
+
+
+    """
+    =================================================================
+    6. Time stepping and iteration loop
+    =================================================================
+    """
+
+    errors = []
+    energies = []
+    iterations = []
+    abs_errors = []
+
+    solution_previous_time.x.array[:] = initial.x.array[:]
+    solution_previous_iteration.x.array[:] = initial.x.array[:]
+    step = 0
+    error = 1
+    nb_of_iterations = 0
+    while t < T:
+        t += dt
+        while error > 10**(-8):
+            # 1. Her-assembleer matrix A
+            A.zeroEntries()
+            dolfinx.fem.petsc.assemble_matrix(A, a_compiled)
+            A.assemble()
+
+            # 2. Her-assembleer rechterzijde vector b
+            with b.localForm() as b_local:
+                b_local.set(0.0)
+            dolfinx.fem.petsc.assemble_vector(b, f_compiled)
+            b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+
+            # 3. Los op
+            solver.setOperators(A)
+            solver.solve(b, solution.x.petsc_vec)
+            solution.x.scatter_forward()
+
+            compiled_mass = form(u*ufl.dx)
+            mass = assemble_scalar(compiled_mass)
+            #print(mass)
+
+            compiled_error = form(ufl.inner(u - u_previous_iteration, u - u_previous_iteration) * ufl.dx)
+            error = np.sqrt(assemble_scalar(compiled_error))
+            errors.append(error)
+            #print(error)
+
+            compiled_energy = form((0.5*ufl.inner(ufl.grad(u), ufl.grad(u))+(0.25/eps)*(1-u**2)**2)*ufl.dx)
+            energy = assemble_scalar(compiled_energy)
+            energies.append(energy)
+            #print(energy)
+
+            solution_previous_iteration.x.array[:] = solution.x.array[:]
+            nb_of_iterations += 1
+
+        compiled_abs_error = form(ufl.inner(u_exact - u, u_exact - u) * ufl.dx)
+        abs_error = np.sqrt(assemble_scalar(compiled_abs_error))
+        abs_errors.append(abs_error)
+        print(abs_error)
+
+      
+        
+        iterations.append(nb_of_iterations)
+        nb_of_iterations = 0
+        
+        solution_previous_time.x.array[:] = solution.x.array[:]
+        solution_previous_iteration.x.array[:] = solution.x.array[:]
+
+        c_output.interpolate(solution.sub(0))
+        vtk_file.write_function(c_output, t)
+
+        error = 1
+        step += 1
+        #print("step = " + str(step))
+
+
+    errors_path = os.path.join("outputs", "errors.txt")
+    energies_path = os.path.join("outputs", "energies.txt")
+    iterations_path = os.path.join("outputs", "iterations.txt")
+
+    # Write errors to errors.txt
+    with open(errors_path, "w") as f:
+        for error in errors:
+            f.write(f"{error}\n")
+
+    # Write energies to energies.txt
+    with open(energies_path, "w") as f:
+        for energy in energies:
+            f.write(f"{energy}\n")
+
+    # Write energies to energies.txt
+    with open(iterations_path, "w") as f:
+        for iteration in iterations:
+            f.write(f"{iteration}\n")
+
+    vtk_file.close()
+    return iterations, errors, energies, abs_errors
+
+    
+
