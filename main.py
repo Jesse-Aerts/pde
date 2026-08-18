@@ -27,6 +27,9 @@ iterations, errors, energies = ch.cahn_hilliard(
 """
 
 
+
+"""
+
 error = []
 for i in range(1, 10):
     iterations, errors, energies, abs_errors = cht.cahn_hilliard_test(
@@ -46,7 +49,7 @@ plt.ylabel("Value")
 plt.grid(True)
 plt.show()
 
-"""
+
 animation()
 
 

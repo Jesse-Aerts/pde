@@ -1,6 +1,6 @@
 """
 =================================================================
-FINITE ELEMENT METHOD (FEM) SOLVER FOR ALLEN-CAHN EQUATION (2D)
+FINITE ELEMENT METHOD (FEM) SOLVER FOR CAHN-HILLIARD EQUATION (2D)
 =================================================================
 This script simulates the motion of phase boundaries (interfaces)
 using the Cahn-Hilliard equation on a unit square domain.
@@ -8,12 +8,12 @@ using the Cahn-Hilliard equation on a unit square domain.
 PDE:
 1: Cahn-Hilliard equation in mixed formulation form
 2: Boundary Conditions: homogeneous Neumann
-3: Initial condition: ...   
+3: Initial condition: square, random noise, two droplets
 
 Numerical Method:
 1. Convex-Concave split of the potential term
 2. Time Discretization: First order IMEX Euler scheme.
-3. Tackling nonlinearity with an iterative linearization: Newton or L-scheme
+3. Linearization: iterative scheme Newton or L-scheme
 4. Spatial Discretization: FEM with P1 Finite Elements (CG)
 =================================================================
 """
@@ -50,6 +50,8 @@ def cahn_hilliard(
     nb_of_time_steps = 100, 
     final_time = 1, 
     eps = 10**(-4)):
+
+
     """
     =============================================================
     1. PARAMETER DEFINITIONS
@@ -70,7 +72,6 @@ def cahn_hilliard(
 
     msh = create_unit_square(MPI.COMM_WORLD, nb_of_spatial_steps, nb_of_spatial_steps, CellType.triangle)
     P1 = element("Lagrange", msh.basix_cell(), 1, dtype=default_real_type)
-    #V = functionspace(msh, P1)
     ME = functionspace(msh, mixed_element([P1, P1]))
 
 
@@ -87,32 +88,16 @@ def cahn_hilliard(
     solution_previous_iteration = Function(ME)
     initial = Function(ME)  # solution from previous converged step
 
-    """
-    rng = np.random.default_rng(42)
-    #initial.sub(0).interpolate(lambda x: 0.02 * (0.5 - rng.random(x.shape[1])))
-    initial.sub(0).interpolate(lambda x: 0.02 * ( rng.random(x.shape[1])))
-    initial.x.scatter_forward()
-    """
-
-    
-    rng = np.random.default_rng(42)
 
     def random_noise(x):
     # Generereer ruis tussen -0.05 en +0.05 voor elk punt x
+        rng = np.random.default_rng(42)
         return rng.uniform(-0.1, 0.1, x.shape[1])
-
-    initial.sub(0).interpolate(random_noise)
-    initial.x.scatter_forward()
-    
-    
-
-    """
-    x_min, x_max = 0.35, 0.65
-    y_min, y_max = 0.35, 0.65
-
 
     def initial_square(x):
         # Bepaal afstand tot de randen van het vierkant
+        x_min, x_max = 0.35, 0.65
+        y_min, y_max = 0.35, 0.65
         dx = np.maximum(x_min - x[0], x[0] - x_max)
         dy = np.maximum(y_min - x[1], x[1] - y_max)
         
@@ -120,23 +105,15 @@ def cahn_hilliard(
         d_square = np.maximum(dx, dy)
         
         return -np.tanh(d_square / (np.sqrt(2) * eps))
-
-
-    initial.sub(0).interpolate(initial_square)
-    initial.x.scatter_forward()
-    """
-
-
-
-    """
-    r_1 = 0.10  # Maak de druppels iets groter (bijv. 0.18 ipv 0.15) voor meer massa!
-    r_2 = 0.10  
-
-    # Centra van de twee druppels
-    center1 = np.array([0.30, 0.5])
-    center2 = np.array([0.70, 0.5])
-
+    
     def initial_two_droplets(x):
+        r_1 = 0.10  # Maak de druppels iets groter (bijv. 0.18 ipv 0.15) voor meer massa!
+        r_2 = 0.10  
+    
+        # Centra van de twee druppels
+        center1 = np.array([0.30, 0.5])
+        center2 = np.array([0.70, 0.5])
+        
         # 1. Bepaal de afstand van elk punt x tot beide centra
         d1 = np.sqrt((x[0] - center1[0])**2 + (x[1] - center1[1])**2)
         d2 = np.sqrt((x[0] - center2[0])**2 + (x[1] - center2[1])**2)
@@ -147,12 +124,15 @@ def cahn_hilliard(
         val2 = r_2 - d2
         effective_dist = np.maximum(val1, val2)
     
-    # 3. Bereken één enkele, hele strakke tanh overgang
+        # 3. Bereken één enkele, hele strakke tanh overgang
         return np.tanh(effective_dist / (np.sqrt(2) * 0.001))
+    
 
-    initial.sub(0).interpolate(initial_two_droplets)
+    initial.sub(0).interpolate(random_noise)
     initial.x.scatter_forward()
-    """
+       
+
+
 
 
     compiled_energy = form((0.5*ufl.inner(ufl.grad(initial), ufl.grad(initial))+(0.25/eps)*(1-initial**2)**2)*ufl.dx)
@@ -232,7 +212,6 @@ def cahn_hilliard(
 
 
     # --- 1. Clean and Prepare the Output Directory ---
-
 
     if msh.comm.rank == 0:
         # If the folder already exists, delete it and all its contents
@@ -317,6 +296,13 @@ def cahn_hilliard(
         error = 1
         step += 1
         print("step = " + str(step))
+    
+
+    """
+    =================================================================
+    7. Output generator
+    =================================================================
+    """
 
 
     errors_path = os.path.join("outputs", "errors.txt")
@@ -333,7 +319,7 @@ def cahn_hilliard(
         for energy in energies:
             f.write(f"{energy}\n")
 
-    # Write energies to energies.txt
+    # Write iterations to iterations.txt
     with open(iterations_path, "w") as f:
         for iteration in iterations:
             f.write(f"{iteration}\n")
