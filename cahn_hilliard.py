@@ -73,6 +73,7 @@ def cahn_hilliard(
     msh = create_unit_square(MPI.COMM_WORLD, nb_of_spatial_steps, nb_of_spatial_steps, CellType.triangle)
     P1 = element("Lagrange", msh.basix_cell(), 1, dtype=default_real_type)
     ME = functionspace(msh, mixed_element([P1, P1]))
+    V = functionspace(msh,P1)
 
 
 
@@ -204,6 +205,24 @@ def cahn_hilliard(
     )
 
 
+    # --- Buitenkant loops definieren (bij Sectie 4) ---
+    solution_p = Function(V)
+    u1 = ufl.TrialFunction(V)
+    v1 = ufl.TestFunction(V)
+
+    # Correcte bilineaire en lineaire vorm met testfunctie v1
+    lhs2 = ufl.inner(ufl.grad(u1), ufl.grad(v1)) * ufl.dx
+    rhs2 = ufl.inner(u - u_previous_time, v1) * ufl.dx
+
+    problem2 = LinearProblem(
+        lhs2, 
+        rhs2, 
+        bcs=[],
+        petsc_options=petsc_options, 
+        petsc_options_prefix="demo_helmholtz_p_"
+    )
+
+
     """
     =================================================================
     5. Output preperation
@@ -254,6 +273,7 @@ def cahn_hilliard(
 
     errors = []
     energies = []
+    modified_energies = []
     iterations = []
 
     solution_previous_time.x.array[:] = initial.x.array[:]
@@ -281,6 +301,17 @@ def cahn_hilliard(
             energies.append(energy)
             print(energy)
 
+            modified_energy_expr = (
+                (0.5 * ufl.inner(ufl.grad(u), ufl.grad(u)) + (0.25 / eps) * (1 - u**2)**2) * ufl.dx
+                + (2 / eps) * ufl.inner(u - u_previous_iteration, u - u_previous_time) * ufl.dx
+                + (1/(2*dt))*ufl.inner(ufl.grad(solution_p), ufl.grad(solution_p))*ufl.dx
+            )
+            modified_energy = assemble_scalar(form(modified_energy_expr))
+            modified_energies.append(modified_energy)
+            print(modified_energy)
+
+        
+
             solution_previous_iteration.x.array[:] = solution.x.array[:]
             nb_of_iterations += 1
         
@@ -304,9 +335,9 @@ def cahn_hilliard(
     =================================================================
     """
 
-
     errors_path = os.path.join("outputs", "errors.txt")
     energies_path = os.path.join("outputs", "energies.txt")
+    modified_energies_path = os.path.join("outputs", "modified_energies.txt")
     iterations_path = os.path.join("outputs", "iterations.txt")
 
     # Write errors to errors.txt
@@ -319,13 +350,18 @@ def cahn_hilliard(
         for energy in energies:
             f.write(f"{energy}\n")
 
+    # Write modified energies to modified_energies.txt
+    with open(modified_energies_path, "w") as f:
+        for modified_energy in modified_energies:
+            f.write(f"{modified_energy}\n")
+
     # Write iterations to iterations.txt
     with open(iterations_path, "w") as f:
         for iteration in iterations:
             f.write(f"{iteration}\n")
 
     vtk_file.close()
-    return iterations, errors, energies
+    return iterations, errors, energies, modified_energies
 
 
 

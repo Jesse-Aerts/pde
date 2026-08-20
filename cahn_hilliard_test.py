@@ -70,7 +70,7 @@ def cahn_hilliard_test(
 
     msh = create_unit_square(MPI.COMM_WORLD, nb_of_spatial_steps, nb_of_spatial_steps, CellType.triangle)
     P1 = element("Lagrange", msh.basix_cell(), 1, dtype=default_real_type)
-    #V = functionspace(msh, P1)
+    V = functionspace(msh, P1)
     ME = functionspace(msh, mixed_element([P1, P1]))
 
 
@@ -292,6 +292,7 @@ def cahn_hilliard_test(
 
     errors = []
     energies = []
+    modified_energies = []
     iterations = []
     abs_errors = []
 
