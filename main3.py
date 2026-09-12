@@ -1,40 +1,66 @@
-import time
-import cahn_hilliard as ch
-import cahn_hilliard_LU as chl
-import cahn_hilliard_test as cht
 import allen_cahn as ac
 from plot import plot2d, plot3d, animation, plot_errors, plot_energies, plot_combined_energies, plot_modified_energies
-from plot2 import plot2d, plot3d, animation, plot_errors, plot_energies, plot_combined_energies, plot_modified_energies 
 import matplotlib.pyplot as plt
 
+# --- 1. Newton meting ---
+start_cpu_newton = time.process_time()
 
-iterations, errors, energies, modified_energies = ch.cahn_hilliard(
+iterations_newton, errors_newton, energies_newton, modified_energies_newton = ch.cahn_hilliard(
     type_of_linearisation = "newton",              
+    nb_of_spatial_steps = 200,                                   
+    nb_of_time_steps = 2,   
+    final_time = 1, 
+    eps = 0.05
+)
+
+end_cpu_newton = time.process_time()
+cpu_time_newton = end_cpu_newton - start_cpu_newton
+
+
+# --- 2. L-scheme (LU) meting ---
+start_cpu_L = time.process_time()
+
+iterations_L, errors_L, energies_L, modified_energies_L = chl.cahn_hilliard(
+    type_of_linearisation = "L",              
     nb_of_spatial_steps = 100,                                   
     nb_of_time_steps = 1,   
     final_time = 1, 
     eps = 0.1
 )
 
+end_cpu_L = time.process_time()
+cpu_time_L = end_cpu_L - start_cpu_L
 
 
+# --- 3. Resultaten printen ---
+print("\n" + "="*50)
+print("BENCHMARK RESULTATEN (CPU-tijd):")
+print(f"Newton CPU-tijd:   {cpu_time_newton:.4f} seconden")
+print(f"L-scheme CPU-tijd: {cpu_time_L:.4f} seconden")
 
-
-
+if cpu_time_L > 0:
+    speedup = cpu_time_newton / cpu_time_L
+    print(f"Speedup L-scheme:  {speedup:.2f}x sneller dan Newton")
+print("="*50 + "\n")
+"""
 plot_errors(False, False,[1])
 
+plot_errors(False, False,[1,2,3,4,5,6,7])
 
 
 plot_energies(False, False, [1])
+
+plot_energies(False, False, [1,2,3,4,5,6,7])
 
 
 plot_modified_energies(False, False, [1])
 
 
+plot_modified_energies(False, False, [1,2,3,4,5,6,7])
 
 
 
-"""
+
 iterations, errors, energies = ac.allen_cahn(
     type_of_linearisation = "L",              
     nb_of_spatial_steps = 50,                                  

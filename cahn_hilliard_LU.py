@@ -31,8 +31,8 @@ import numpy as np
 import ufl
 from basix.ufl import element, mixed_element
 from dolfinx import default_real_type, log, plot
-from dolfinx.fem import Function, assemble_matrix, functionspace, form, assemble_scalar
-from dolfinx.fem.petsc import NonlinearProblem, assemble_vector, create_vector
+from dolfinx.fem import Function, functionspace, form, assemble_scalar
+from dolfinx.fem.petsc import NonlinearProblem, assemble_vector, create_vector, assemble_matrix
 from dolfinx.fem.petsc import LinearProblem
 from dolfinx.io import XDMFFile
 from dolfinx.mesh import CellType, create_unit_square
@@ -173,7 +173,7 @@ def cahn_hilliard(
 
     F2 = (
         -eps * ufl.inner(ufl.grad(u_trial), ufl.grad(v))*ufl.dx 
-        + ufl.inner(mu_trial, v)*ufl.dx
+        + eps* ufl.inner(mu_trial, v)*ufl.dx
         - L * ufl.inner(u_trial, v)*ufl.dx 
         - ufl.inner(u_previous_iteration**3, v)*ufl.dx 
         + L * ufl.inner(u_previous_iteration, v)*ufl.dx 
@@ -192,6 +192,7 @@ def cahn_hilliard(
 
     # Assembleer matrix A EENMALIG (geen Dirichlet RV's bij Neumann)
     A = assemble_matrix(a_form)
+    A.assemble()
 
     # Pre-factoriseer A via PETSc KSP (EENMALIG)
     solver = PETSc.KSP().create(msh.comm)
@@ -202,7 +203,7 @@ def cahn_hilliard(
     solver.setUp()  # <--- HIER vindt de kostbare LU-factorisatie plaats!
 
     # Pre-allocatie van de b-vector
-    b = assemble_vector(L_form)
+    b = dolfinx.fem.petsc.assemble_vector(L_form)
 
     
 
@@ -215,6 +216,18 @@ def cahn_hilliard(
     # Correcte bilineaire en lineaire vorm met testfunctie v1
     lhs2 = ufl.inner(ufl.grad(u1), ufl.grad(v1)) * ufl.dx
     rhs2 = ufl.inner(u - u_previous_time, v1) * ufl.dx
+
+    petsc_options = {
+            "snes_type": "newtonls",
+            "snes_linesearch_type": "none",
+            "snes_stol": np.sqrt(np.finfo(default_real_type).eps) * 1e-2,
+            "snes_atol": 0,
+            "snes_rtol": 0,
+            "ksp_type": "preonly",
+            "pc_type": "lu",
+            "pc_factor_mat_solver_type": "petsc",
+            "snes_monitor": None,
+        }
 
     problem2 = LinearProblem(
         lhs2, 
@@ -277,7 +290,7 @@ def cahn_hilliard(
     energies = []
     modified_energies = []
     iterations = []
-    b = create_vector(L_form)
+    b = dolfinx.fem.petsc.assemble_vector(L_form)
     solution_previous_time.x.array[:] = initial.x.array[:]
     solution_previous_iteration.x.array[:] = initial.x.array[:]
     step = 0

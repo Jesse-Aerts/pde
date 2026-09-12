@@ -132,10 +132,6 @@ def cahn_hilliard(
     initial.sub(0).interpolate(random_noise)
     initial.x.scatter_forward()
        
-
-
-
-
     compiled_energy = form((0.5*ufl.inner(ufl.grad(initial), ufl.grad(initial))+(0.25/eps)*(1-initial**2)**2)*ufl.dx)
     energy = assemble_scalar(compiled_energy)
     print("Initial energy =" + str(energy))
@@ -158,7 +154,7 @@ def cahn_hilliard(
 
     # 2. Set up your linearization constant (L)
     if type_of_linearisation == "newton":
-        L = 3 * solution_previous_iteration**2
+        L = 3 * u_previous_iteration**2
     elif type_of_linearisation == "L":
         L = dolfinx.fem.Constant(msh, dolfinx.default_scalar_type(3.0))
 
@@ -172,7 +168,7 @@ def cahn_hilliard(
 
     F2 = (
         -eps * ufl.inner(ufl.grad(u_trial), ufl.grad(v))*ufl.dx 
-        + ufl.inner(mu_trial, v)*ufl.dx
+        + eps*ufl.inner(mu_trial, v)*ufl.dx
         - L * ufl.inner(u_trial, v)*ufl.dx 
         - ufl.inner(u_previous_iteration**3, v)*ufl.dx 
         + L * ufl.inner(u_previous_iteration, v)*ufl.dx 
