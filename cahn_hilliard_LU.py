@@ -31,8 +31,8 @@ import numpy as np
 import ufl
 from basix.ufl import element, mixed_element
 from dolfinx import default_real_type, log, plot
-from dolfinx.fem import Function, functionspace, form, assemble_scalar
-from dolfinx.fem.petsc import NonlinearProblem
+from dolfinx.fem import Function, assemble_matrix, functionspace, form, assemble_scalar
+from dolfinx.fem.petsc import NonlinearProblem, assemble_vector, create_vector
 from dolfinx.fem.petsc import LinearProblem
 from dolfinx.io import XDMFFile
 from dolfinx.mesh import CellType, create_unit_square
@@ -42,6 +42,7 @@ import dolfinx.io
 import pyvista as pv
 import pyvistaqt as pvqt
 import shutil
+
    
 
 def cahn_hilliard(
@@ -184,25 +185,26 @@ def cahn_hilliard(
     a = ufl.lhs(F)
     f_linear = ufl.rhs(F)
 
-    petsc_options = {
-        "snes_type": "newtonls",
-        "snes_linesearch_type": "none",
-        "snes_stol": np.sqrt(np.finfo(default_real_type).eps) * 1e-2,
-        "snes_atol": 0,
-        "snes_rtol": 0,
-        "ksp_type": "preonly",
-        "pc_type": "lu",
-        "pc_factor_mat_solver_type": "petsc",
-        "snes_monitor": None,
-    }
+    
 
-    problem = LinearProblem(
-        a, 
-        f_linear, 
-        u=solution, 
-        petsc_options=petsc_options, 
-        petsc_options_prefix= "demo_helmholtz_"
-    )
+    a_form = form(a)
+    L_form = form(f_linear)
+
+    # Assembleer matrix A EENMALIG (geen Dirichlet RV's bij Neumann)
+    A = assemble_matrix(a_form)
+
+    # Pre-factoriseer A via PETSc KSP (EENMALIG)
+    solver = PETSc.KSP().create(msh.comm)
+    solver.setOperators(A)
+    solver.setType(PETSc.KSP.Type.PREONLY)
+    solver.getPC().setType(PETSc.PC.Type.LU)
+    solver.getPC().setFactorSolverType("mumps")  # Gebruik MUMPS (of "petsc" / "superlu_dist")
+    solver.setUp()  # <--- HIER vindt de kostbare LU-factorisatie plaats!
+
+    # Pre-allocatie van de b-vector
+    b = assemble_vector(L_form)
+
+    
 
 
     # --- Buitenkant loops definieren (bij Sectie 4) ---
@@ -275,7 +277,7 @@ def cahn_hilliard(
     energies = []
     modified_energies = []
     iterations = []
-
+    b = create_vector(L_form)
     solution_previous_time.x.array[:] = initial.x.array[:]
     solution_previous_iteration.x.array[:] = initial.x.array[:]
     step = 0
@@ -284,8 +286,14 @@ def cahn_hilliard(
     while t < T:
         t += dt
         while error > 10**(-8):
-            _ = problem.solve()
-            print(solution.x.array[:])
+            with b.localForm() as b_local:
+                b_local.set(0.0)
+            assemble_vector(b, L_form)
+            b.ghostUpdate(addv=PETSc.InsertMode.ADD_VALUES, mode=PETSc.ScatterMode.REVERSE)
+
+            # Los het stelsel op met de gecachte LU-factorisatie (razendsnel)
+            solver.solve(b, solution.x.petsc_vec)
+            solution.x.scatter_forward()
 
             compiled_mass = form(u*ufl.dx)
             mass = assemble_scalar(compiled_mass)

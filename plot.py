@@ -418,6 +418,7 @@ def plot_combined_energies(iterations_per_timestep=False, energies=False, modifi
 
     # 5. Create plot
     plt.figure(figsize=(8, 5))
+    plt.yscale('log')
     
     plt.plot(
         energies_to_plot, 

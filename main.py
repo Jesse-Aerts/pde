@@ -1,8 +1,9 @@
-import cahn_hilliard as ch
+import cahn_hilliard_LU as ch
 import cahn_hilliard_test as cht
 import allen_cahn as ac
-from plot import plot2d, plot3d, animation, plot_errors, plot_energies
+from plot import plot2d, plot3d, animation, plot_errors, plot_energies, plot_combined_energies, plot_modified_energies
 import matplotlib.pyplot as plt
+
 
 
 """
@@ -19,19 +20,21 @@ iterations, errors, energies = ac.allen_cahn(
 
 iterations, errors, energies, modified_energies = ch.cahn_hilliard(
     type_of_linearisation = "L",              
-    nb_of_spatial_steps =20,                                  
+    nb_of_spatial_steps =300,                                  
     nb_of_time_steps=1,  
-    final_time = 0.1, 
-    eps = 0.1
+    final_time = 650, 
+    eps = 0.05
 )
 
-print(modified_energies)
 
-"""
-plot_errors(False, False,[1,2,3,4,5,6,7,8,9,10])
+plot_errors(False, False,[1])
 
-plot_energies(False, False, [1,2,3,4,5,6,7,8,10])
-"""
+plot_energies(False, False, 1)
+
+plot_modified_energies(False, False, 1)
+
+
+
 
 
 """
