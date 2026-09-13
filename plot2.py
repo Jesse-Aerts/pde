@@ -177,7 +177,6 @@ def plot_quadratic_convergence(iterations_per_timestep, errors, timesteps=-1, la
 
     plt.xlabel(r'$\|u^{i-1} - u^{i-2}\|_{H^1}$')
     plt.ylabel(r'$\|u^i - u^{i-1}\|_{H^1}$')
-    plt.title('Quadratic Convergence Check (Log-Log)')
     plt.grid(True, which="both", linestyle="--", alpha=0.5)
     plt.legend()
     plt.tight_layout()
@@ -205,7 +204,7 @@ def plot_energies(iterations_per_timestep, energies, timesteps=-1):
     )
 
     plt.xlabel(r'Combined Iterations ($i$)')
-    plt.ylabel(r'Ginzburg-Landau Energy $E(u)$')
+    plt.ylabel(r'Ginzburg-Landau Energy')
     plt.grid(True, linestyle="--", alpha=0.5)
     plt.legend()
     plt.tight_layout()
@@ -232,8 +231,8 @@ def plot_modified_energies(iterations_per_timestep, energies, timesteps=-1):
         label=r'$J(u)$'
     )
 
-    plt.xlabel(r'Combined Iterations ($k$)')
-    plt.ylabel(r'Modified Functional $J(u)$')
+    plt.xlabel(r'Combined Iterations ($i$)')
+    plt.ylabel(r'Modified Energy')
     plt.grid(True, linestyle="--", alpha=0.5)
     plt.legend()
     plt.tight_layout()

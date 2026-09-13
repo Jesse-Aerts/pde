@@ -2,8 +2,8 @@ import cahn_hilliard as ch
 import plot2 as pm  # Pas aan naar de naam van jouw plot-bestand
 
 # 1. Definieer de waarden voor epsilon die je wilt vergelijken
-eps_values = [0.09, 0.08, 0.07,0.06]
-eps_values = [0.07]
+eps_values = [0.09,0.08,0.07,0.06,0.05]
+
 
 # Lijsten om de resultaten per eps-waarde op te slaan
 all_iterations = []
@@ -17,10 +17,10 @@ for eps in eps_values:
     print(f"Simulatie starten voor eps = {eps}...")
     
     iterations, errors, energies, modified_energies = ch.cahn_hilliard(
-        type_of_linearisation="newton",              
+        type_of_linearisation="L",              
         nb_of_spatial_steps=50,                                   
-        nb_of_time_steps=100,   
-        final_time=0.001, 
+        nb_of_time_steps=5,   
+        final_time=0.1, 
         eps=eps
     )
     
@@ -50,16 +50,16 @@ pm.plot_quadratic_convergence(
     labels=labels
 )
 
-# Plot 3: Ginzburg-Landau energie E(u) voor de eerste run (eps = 0.3)
+# Plot 3: Ginzburg-Landau energie E(u) voor de eerste run 
 pm.plot_energies(
-    iterations_per_timestep=all_iterations[0],
+    iterations_per_timestep=all_iterations[3],
     energies=all_energies[0],
-    timesteps=1,
+    timesteps=[1,2,3,4,5]
 )
 
-# Plot 4: Aangepaste functionaal J(u) voor de eerste run (eps = 0.3)
+# Plot 4: Aangepaste functionaal J(u) voor de eerste run (
 pm.plot_modified_energies(
-    iterations_per_timestep=all_iterations[0],
+    iterations_per_timestep=all_iterations[3],
     energies=all_modified_energies[0],
-    timesteps=1,
+    timesteps=[1,2,3,4,5]
 )

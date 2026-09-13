@@ -93,7 +93,7 @@ def cahn_hilliard(
     def random_noise(x):
     # Generereer ruis tussen -0.05 en +0.05 voor elk punt x
         rng = np.random.default_rng(42)
-        return rng.uniform(-0.1, 0.1, x.shape[1])
+        return rng.uniform(-0.8, 0.8, x.shape[1])
 
     def initial_square(x):
         # Bepaal afstand tot de randen van het vierkant
@@ -108,8 +108,8 @@ def cahn_hilliard(
         return -np.tanh(d_square / (np.sqrt(2) * eps))
     
     def initial_two_droplets(x):
-        r_1 = 0.18  # Maak de druppels iets groter (bijv. 0.18 ipv 0.15) voor meer massa!
-        r_2 = 0.18  
+        r_1 = 0.17  # Maak de druppels iets groter (bijv. 0.18 ipv 0.15) voor meer massa!
+        r_2 = 0.17 
     
         # Centra van de twee druppels
         center1 = np.array([0.30, 0.5])
@@ -126,10 +126,10 @@ def cahn_hilliard(
         effective_dist = np.maximum(val1, val2)
     
         # 3. Bereken één enkele, hele strakke tanh overgang
-        return np.tanh(effective_dist / (np.sqrt(2) * 0.001))
+        return np.tanh(effective_dist / (np.sqrt(2) * np.sqrt(eps)))
     
 
-    initial.sub(0).interpolate(initial_two_droplets)
+    initial.sub(0).interpolate(random_noise)
     initial.x.scatter_forward()
        
     compiled_energy = form((0.5*ufl.inner(ufl.grad(initial), ufl.grad(initial))+(0.25/eps)*(1-initial**2)**2)*ufl.dx)
@@ -162,7 +162,7 @@ def cahn_hilliard(
     # 3. Define the equations using the TrialFunctions
     F1 = (
         ufl.inner(u_trial, phi)*ufl.dx 
-        + dt *(1-u_previous_time)**2*ufl.inner(ufl.grad(mu_trial), ufl.grad(phi))*ufl.dx 
+        + dt *ufl.inner(ufl.grad(mu_trial), ufl.grad(phi))*ufl.dx 
         - ufl.inner(u_previous_time, phi)*ufl.dx
     )
 
@@ -285,6 +285,7 @@ def cahn_hilliard(
 
             compiled_mass = form(u*ufl.dx)
             mass = assemble_scalar(compiled_mass)
+            print(mass)
             
 
             compiled_error = form(ufl.inner(u - u_previous_iteration, u - u_previous_iteration) * ufl.dx 
@@ -314,8 +315,10 @@ def cahn_hilliard(
 
             solution_previous_iteration.x.array[:] = solution.x.array[:]
             nb_of_iterations += 1
-        
+            if type_of_linearisation == "newton" and nb_of_iterations >100:
+                                break
         iterations.append(nb_of_iterations)
+        
         nb_of_iterations = 0
         
         solution_previous_time.x.array[:] = solution.x.array[:]
