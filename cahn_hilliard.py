@@ -108,8 +108,8 @@ def cahn_hilliard(
         return -np.tanh(d_square / (np.sqrt(2) * eps))
     
     def initial_two_droplets(x):
-        r_1 = 0.10  # Maak de druppels iets groter (bijv. 0.18 ipv 0.15) voor meer massa!
-        r_2 = 0.10  
+        r_1 = 0.18  # Maak de druppels iets groter (bijv. 0.18 ipv 0.15) voor meer massa!
+        r_2 = 0.18  
     
         # Centra van de twee druppels
         center1 = np.array([0.30, 0.5])
@@ -129,7 +129,7 @@ def cahn_hilliard(
         return np.tanh(effective_dist / (np.sqrt(2) * 0.001))
     
 
-    initial.sub(0).interpolate(random_noise)
+    initial.sub(0).interpolate(initial_two_droplets)
     initial.x.scatter_forward()
        
     compiled_energy = form((0.5*ufl.inner(ufl.grad(initial), ufl.grad(initial))+(0.25/eps)*(1-initial**2)**2)*ufl.dx)
@@ -162,16 +162,16 @@ def cahn_hilliard(
     # 3. Define the equations using the TrialFunctions
     F1 = (
         ufl.inner(u_trial, phi)*ufl.dx 
-        + dt * ufl.inner(ufl.grad(mu_trial), ufl.grad(phi))*ufl.dx 
+        + dt *(1-u_previous_time)**2*ufl.inner(ufl.grad(mu_trial), ufl.grad(phi))*ufl.dx 
         - ufl.inner(u_previous_time, phi)*ufl.dx
     )
 
     F2 = (
         -eps * ufl.inner(ufl.grad(u_trial), ufl.grad(v))*ufl.dx 
         + eps*ufl.inner(mu_trial, v)*ufl.dx
-        - L * ufl.inner(u_trial, v)*ufl.dx 
+        - ( ufl.inner(L*u_trial, v))*ufl.dx 
         - ufl.inner(u_previous_iteration**3, v)*ufl.dx 
-        + L * ufl.inner(u_previous_iteration, v)*ufl.dx 
+        + ( ufl.inner(L*u_previous_iteration, v))*ufl.dx 
         + ufl.inner(u_previous_time, v)*ufl.dx
     )
 
@@ -281,11 +281,11 @@ def cahn_hilliard(
         t += dt
         while error > 10**(-8):
             _ = problem.solve()
-            print(solution.x.array[:])
+            #print(solution.x.array[:])
 
             compiled_mass = form(u*ufl.dx)
             mass = assemble_scalar(compiled_mass)
-            print(mass)
+            
 
             compiled_error = form(ufl.inner(u - u_previous_iteration, u - u_previous_iteration) * ufl.dx 
                             + ufl.inner(ufl.grad(u-u_previous_iteration), ufl.grad(u-u_previous_iteration))*ufl.dx)
@@ -298,6 +298,8 @@ def cahn_hilliard(
             energy = assemble_scalar(compiled_energy)
             energies.append(energy)
             print(energy)
+
+            _ = problem2.solve()
 
             modified_energy_expr = (
                 (0.5 * ufl.inner(ufl.grad(u), ufl.grad(u)) + (0.25 / eps) * (1 - u**2)**2) * ufl.dx

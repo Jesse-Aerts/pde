@@ -2,7 +2,8 @@ import cahn_hilliard as ch
 import plot2 as pm  # Pas aan naar de naam van jouw plot-bestand
 
 # 1. Definieer de waarden voor epsilon die je wilt vergelijken
-eps_values = [0.06]
+eps_values = [0.09, 0.08, 0.07,0.06]
+eps_values = [0.07]
 
 # Lijsten om de resultaten per eps-waarde op te slaan
 all_iterations = []
@@ -16,10 +17,10 @@ for eps in eps_values:
     print(f"Simulatie starten voor eps = {eps}...")
     
     iterations, errors, energies, modified_energies = ch.cahn_hilliard(
-        type_of_linearisation="L",              
-        nb_of_spatial_steps=100,                                   
-        nb_of_time_steps=1,   
-        final_time=50, 
+        type_of_linearisation="newton",              
+        nb_of_spatial_steps=50,                                   
+        nb_of_time_steps=100,   
+        final_time=0.001, 
         eps=eps
     )
     
