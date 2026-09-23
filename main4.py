@@ -17,10 +17,10 @@ for eps in eps_values:
     print(f"Simulatie starten voor eps = {eps}...")
     
     iterations, errors, energies, modified_energies = ch.cahn_hilliard(
-        type_of_linearisation="L",              
+        type_of_linearisation="newton",              
         nb_of_spatial_steps=50,                                   
-        nb_of_time_steps=5,   
-        final_time=0.1, 
+        nb_of_time_steps=1,   
+        final_time=10, 
         eps=eps
     )
     
@@ -54,12 +54,12 @@ pm.plot_quadratic_convergence(
 pm.plot_energies(
     iterations_per_timestep=all_iterations[3],
     energies=all_energies[0],
-    timesteps=[1,2,3,4,5]
+    timesteps=1
 )
 
 # Plot 4: Aangepaste functionaal J(u) voor de eerste run (
 pm.plot_modified_energies(
     iterations_per_timestep=all_iterations[3],
     energies=all_modified_energies[0],
-    timesteps=[1,2,3,4,5]
+    timesteps=1
 )

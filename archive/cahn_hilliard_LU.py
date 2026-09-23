@@ -94,7 +94,7 @@ def cahn_hilliard(
     def random_noise(x):
     # Generereer ruis tussen -0.05 en +0.05 voor elk punt x
         rng = np.random.default_rng(42)
-        return rng.uniform(-0.1, 0.1, x.shape[1])
+        return rng.uniform(-1, 1, x.shape[1])
 
     def initial_square(x):
         # Bepaal afstand tot de randen van het vierkant
@@ -232,6 +232,7 @@ def cahn_hilliard(
     problem2 = LinearProblem(
         lhs2, 
         rhs2, 
+        u = solution_p,
         bcs=[],
         petsc_options=petsc_options, 
         petsc_options_prefix="demo_helmholtz_p_"
