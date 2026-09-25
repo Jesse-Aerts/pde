@@ -136,7 +136,7 @@ def cahn_hilliard(
     4. Weak formulation of linear elliptic problem at each time step
     =================================================================
     """
-    metadata = {"quadrature_degree": 8}
+ 
 
     #1. Defining functions over MIXED-ELEMENT SPACE
     solution = Function(ME)  # current solution
@@ -154,16 +154,16 @@ def cahn_hilliard(
     if type_of_linearisation == "newton":
         L = 3 * u_previous_iteration**2
     elif type_of_linearisation == "L":
-        L = dolfinx.fem.Constant(msh, dolfinx.default_scalar_type(5.0))
+        L = dolfinx.fem.Constant(msh, dolfinx.default_scalar_type(3.0))
 
     #4. Weak forms of linearized time discrete problem of CH
     u_trial, mu_trial = ufl.TrialFunctions(ME)
     phi, v = ufl.TestFunctions(ME)
     F1 = (
-        ufl.inner(3*u_trial, phi)*ufl.dx(metadata = metadata) 
-        + 2*dt *ufl.inner(ufl.grad(mu_trial), ufl.grad(phi))*ufl.dx(metadata = metadata) 
-        - ufl.inner(4*u_previous_time, phi)*ufl.dx(metadata = metadata) 
-        + ufl.inner(u_previous_previous_time, phi)*ufl.dx(metadata = metadata) 
+        ufl.inner(3*u_trial, phi)*ufl.dx
+        + 2*dt *ufl.inner(ufl.grad(mu_trial), ufl.grad(phi))*ufl.dx
+        - ufl.inner(4*u_previous_time, phi)*ufl.dx
+        + ufl.inner(u_previous_previous_time, phi)*ufl.dx
     )
 
     u_bound = 1.0
@@ -173,10 +173,10 @@ def cahn_hilliard(
     # 1. Truncatie voor de L-schema iteratie variabele (u^{n,i-1})
     u_prev_iter_trunc = ufl.conditional(
         ufl.gt(u_previous_iteration, u_bound),
-        u_bound,
+        0,
         ufl.conditional(
             ufl.lt(u_previous_iteration, -u_bound),
-            -u_bound,
+            0,
             u_previous_iteration
         )
     )
@@ -184,10 +184,10 @@ def cahn_hilliard(
     # 2. Truncatie voor u^{n-1} (previous_time)
     u_prev_time_trunc = ufl.conditional(
         ufl.gt(u_previous_time, u_bound),
-        u_bound,
+        0,
         ufl.conditional(
             ufl.lt(u_previous_time, -u_bound),
-            -u_bound,
+            0,
             u_previous_time
         )
     )
@@ -195,23 +195,34 @@ def cahn_hilliard(
     # 3. Truncatie voor u^{n-2} (previous_previous_time)
     u_prev_prev_time_trunc = ufl.conditional(
         ufl.gt(u_previous_previous_time, u_bound),
-        u_bound,
+        0,
         ufl.conditional(
             ufl.lt(u_previous_previous_time, -u_bound),
-            -u_bound,
+            0,
             u_previous_previous_time
         )
     )
 
+    """
     F2 = (
-        eps*ufl.inner(mu_trial, v)*ufl.dx(metadata = metadata) 
-        -eps * ufl.inner(ufl.grad(u_trial), ufl.grad(v))*ufl.dx(metadata = metadata)  
-        - ( ufl.inner(L*u_trial, v))*ufl.dx(metadata = metadata)  
-        - ufl.inner(u_prev_iter_trunc**3, v)*ufl.dx(metadata = metadata)  
-        + ( ufl.inner(L*u_previous_iteration, v))*ufl.dx(metadata = metadata)  
-        + ufl.inner(2*u_prev_time_trunc, v)*ufl.dx(metadata = metadata) 
-        - ufl.inner(u_prev_prev_time_trunc, v)*ufl.dx(metadata = metadata) 
+        eps*ufl.inner(mu_trial, v)*ufl.dx
+        -eps * ufl.inner(ufl.grad(u_trial), ufl.grad(v))*ufl.dx
+        - ( ufl.inner(L*u_trial, v))*ufl.dx  
+        - ufl.inner(u_prev_iter_trunc**3, v)*ufl.dx
+        + ( ufl.inner(L*u_previous_iteration, v))*ufl.dx  
+        + ufl.inner(2*u_prev_time_trunc, v)*ufl.dx
+        - ufl.inner(u_prev_prev_time_trunc, v)*ufl.dx
     )
+    """
+    F2 = (
+            eps*ufl.inner(mu_trial, v)*ufl.dx
+            -eps * ufl.inner(ufl.grad(u_trial), ufl.grad(v))*ufl.dx
+            - ( ufl.inner(L*u_trial, v))*ufl.dx  
+            - ufl.inner(u_previous_iteration**3, v)*ufl.dx
+            + ( ufl.inner(L*u_previous_iteration, v))*ufl.dx  
+            + ufl.inner(2*u_previous_time, v)*ufl.dx
+            - ufl.inner(u_previous_previous_time, v)*ufl.dx
+        )
 
     F = F1+F2
 
@@ -288,7 +299,7 @@ def cahn_hilliard(
         solver2.setUp()  # <--- HIER vindt de kostbare LU-factorisatie plaats!
 
         # Pre-allocatie van de b-vector
-        b = dolfinx.fem.petsc.assemble_vector(L_form1)
+        b2 = dolfinx.fem.petsc.assemble_vector(L_form1)
 
     """
     =================================================================
@@ -390,6 +401,7 @@ def cahn_hilliard(
     solution_previous_time.x.array[:] = initial.x.array[:]
     solution_previous_previous_time.x.array[:] = initial.x.array[:]
     solution_previous_iteration.x.array[:] = initial.x.array[:]
+
     energies.append(energy)
     step = 0
     error = 1
@@ -401,11 +413,11 @@ def cahn_hilliard(
                 if type_of_linearisation == "newton":
                     _ = problem.solve()
                 else:
-                    with b.localForm() as b_local:
+                    with b2.localForm() as b_local:
                         b_local.set(0.0)
-                    assemble_vector(b, L_form1)
-                    b.ghostUpdate(addv=PETSc.InsertMode.ADD_VALUES, mode=PETSc.ScatterMode.REVERSE)
-                    solver2.solve(b, solution.x.petsc_vec)
+                    assemble_vector(b2, L_form1)
+                    b2.ghostUpdate(addv=PETSc.InsertMode.ADD_VALUES, mode=PETSc.ScatterMode.REVERSE)
+                    solver2.solve(b2, solution.x.petsc_vec)
                     solution.x.scatter_forward()
             else:
                 if type_of_linearisation == "newton":
@@ -443,13 +455,11 @@ def cahn_hilliard(
 
             #print(solution_q.x.array[:])
 
-            metadata = {"quadrature_degree": 8}
-
             modified_energy_expr = (
-                (0.5 * ufl.inner(ufl.grad(u), ufl.grad(u)) + (0.25 / eps) * (1 - u**2)**2) * ufl.dx(metadata = metadata)
-                + (2/ eps) * ufl.inner(u - 2*u_previous_time+u_previous_previous_time, u - 2*u_previous_time+u_previous_previous_time) * ufl.dx(metadata = metadata)
-                + (1/(2*dt))*ufl.inner(ufl.grad(solution_p), ufl.grad(solution_p))*ufl.dx(metadata = metadata)
-                + (1/(4*dt))*ufl.inner(ufl.grad(solution_q), ufl.grad(solution_q))*ufl.dx(metadata = metadata)
+                (0.5 * ufl.inner(ufl.grad(u), ufl.grad(u)) + (0.25 / eps) * (1 - u**2)**2) * ufl.dx
+                + (1/ 2*eps) * ufl.inner(u - 2*u_previous_time+u_previous_previous_time, u - 2*u_previous_time+u_previous_previous_time) * ufl.dx
+                + (1/(2*dt))*ufl.inner(ufl.grad(solution_p), ufl.grad(solution_p))*ufl.dx
+                + (1/(4*dt))*ufl.inner(ufl.grad(solution_q), ufl.grad(solution_q))*ufl.dx
             )
             modified_energy = assemble_scalar(form(modified_energy_expr))
             modified_energies.append(modified_energy)
@@ -458,6 +468,7 @@ def cahn_hilliard(
         
 
             solution_previous_iteration.x.array[:] = solution.x.array[:]
+            solution_previous_iteration.x.scatter_forward()
             nb_of_iterations += 1
             """
             if type_of_linearisation == "newton" and nb_of_iterations >100:
@@ -469,9 +480,14 @@ def cahn_hilliard(
 
         
         solution_previous_previous_time.x.array[:] = solution_previous_time.x.array[:]
+        solution_previous_previous_time.x.scatter_forward()
+
         solution_previous_time.x.array[:] = solution.x.array[:]
+        solution_previous_time.x.scatter_forward()
+
         solution_previous_iteration.x.array[:] = solution.x.array[:]
-        #solution_previous_iteration.x.array[:] = (2 * solution_previous_time.x.array - solution_previous_previous_time.x.array)
+        solution_previous_iteration.x.scatter_forward()
+        
 
         c_output.interpolate(solution.sub(0))
         vtk_file.write_function(c_output, t)

@@ -66,7 +66,7 @@ def animation():
 
     reader.set_active_time_value(reader.time_values[0])
     grid = reader.read()[0]
-    plotter.add_mesh(grid, scalars="c", cmap="coolwarm", clim=[-1, 1])
+    plotter.add_mesh(grid, scalars="c", cmap="coolwarm", clim=[-5, 5])
 
     save_path = get_unique_filename("simulations", "simulation", "mp4")
     plotter.open_movie(save_path, framerate=10)

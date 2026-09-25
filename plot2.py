@@ -37,7 +37,7 @@ def animation():
     plotter = pv.Plotter(off_screen=True)
     reader.set_active_time_value(reader.time_values[0])
     grid = reader.read()[0]
-    plotter.add_mesh(grid, scalars="u", cmap="coolwarm", clim=[-1, 1])
+    plotter.add_mesh(grid, scalars="u", cmap="coolwarm", clim=[-5, 5])
 
     plotter.open_movie("simulations/simulation.mp4", framerate=10)
 
